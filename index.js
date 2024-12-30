@@ -1,5 +1,6 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
+const { Launcher } = require('minecraft-launcher-core');  // Import the launcher-core for authentication
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -16,16 +17,62 @@ let BotArgs = [
         host: 'mc.leftypvp.net',
         version: '1.8.9',
         username: 'strange_exe', // Microsoft account
-        auth: 'microsoft',        // Specify Microsoft authentication
-        password: 'strange123'
+        auth: 'microsoft',       // Specify Microsoft authentication
+        token: null              // Placeholder for the Microsoft token
     }
 ];
 
 let bots = []; // Array to store all bot instances
 
-// Initialize bot with Microsoft authentication
-const initBot = (args) => {
-    let bot = mineflayer.createBot(args);
+// Function to obtain Microsoft authentication token using launcher-core
+const getMicrosoftToken = (username, password) => {
+    return new Promise((resolve, reject) => {
+        const launcher = new Launcher({
+            clientPackage: {
+                url: 'https://launchermeta.mojang.com/mc/game/version_manifest.json'
+            },
+            authentication: {
+                username: username,
+                password: password
+            },
+            directories: {
+                game: './game',
+                launcher: './launcher'
+            }
+        });
+
+        launcher.authPlugin.on('authorization', (token) => {
+            resolve(token);  // Resolve with the token
+        });
+
+        launcher.authPlugin.on('error', (err) => {
+            reject(err); // Reject on error
+        });
+
+        launcher.start(); // Start the authentication process
+    });
+};
+
+// Initialize bot with Microsoft authentication and token
+const initBot = async (args) => {
+    // If authentication is Microsoft, get the token
+    if (args.auth === 'microsoft' && !args.token) {
+        try {
+            // Replace with the actual username and password for Microsoft account
+            args.token = await getMicrosoftToken('social.abhinesh@outlook.com', 'strange.minecraft');
+        } catch (error) {
+            console.error('Failed to get Microsoft authentication token:', error);
+            return;
+        }
+    }
+
+    let bot = mineflayer.createBot({
+        host: args.host,
+        version: args.version,
+        username: args.username,
+        auth: 'microsoft',  // Use Microsoft auth
+        token: args.token    // Pass the token
+    });
 
     bots.push(bot); // Add the bot to the list
 
@@ -46,7 +93,6 @@ const initBot = (args) => {
     bot.once('login', async () => {
         const password = args.password;
         bot.chat(`/login ${password}`);
-
     });
 
     bot.on('spawn', async () => {

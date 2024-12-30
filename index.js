@@ -15,8 +15,9 @@ let BotArgs = [
     {
         host: 'mc.leftypvp.net',
         version: '1.8.9',
-        username: 'MicrosoftBot', // Microsoft account
-        auth: 'microsoft'         // Specify Microsoft authentication
+        username: 'strange_exe', // Microsoft account
+        auth: 'microsoft',        // Specify Microsoft authentication
+        password: 'strange123'
     }
 ];
 

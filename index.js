@@ -62,13 +62,16 @@ const initBot = (args) => {
         }
 
         // Handle .quit command to disconnect a specific bot
-        if (message.startsWith('.quit ')) {
+        if (username === "strange_exe" && message.startsWith('.quit ')) {
             let botName = message.split(' ')[1];
             let botToDisconnect = bots.find(b => b.username === botName);
             if (botToDisconnect) {
                 botToDisconnect.quit('Disconnected by command');
                 console.log(`Bot ${botName} has been disconnected.`);
             }
+        }
+        if (message.startsWith('.gosmp ')) {
+            bot.chat('/smp');
         }
     });
 

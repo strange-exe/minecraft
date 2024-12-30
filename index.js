@@ -17,12 +17,6 @@ let BotArgs = [
         version: '1.8.9',
         username: '_ABHAY_GAMING_', // Offline account
         password: 'abhaygaming'    // Password for offline account
-    },
-    {
-        host: 'mc.leftypvp.net',
-        version: '1.8.9',
-        username: 'MicrosoftBot', // Microsoft account
-        auth: 'microsoft'         // Specify Microsoft authentication
     }
 ];
 

@@ -1,6 +1,6 @@
 const mineflayer = require('mineflayer');
+const { Launcher } = require('minecraft-launcher-core');
 const readline = require('readline');
-const { Launcher } = require('minecraft-launcher-core');  // Import the launcher-core for authentication
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -24,7 +24,7 @@ let BotArgs = [
 
 let bots = []; // Array to store all bot instances
 
-// Function to obtain Microsoft authentication token using launcher-core
+// Function to obtain Microsoft authentication token
 const getMicrosoftToken = (username, password) => {
     return new Promise((resolve, reject) => {
         const launcher = new Launcher({
@@ -55,11 +55,9 @@ const getMicrosoftToken = (username, password) => {
 
 // Initialize bot with Microsoft authentication and token
 const initBot = async (args) => {
-    // If authentication is Microsoft, get the token
     if (args.auth === 'microsoft' && !args.token) {
         try {
-            // Replace with the actual username and password for Microsoft account
-            args.token = await getMicrosoftToken('social.abhinesh@outlook.com', 'strange.minecraft');
+            args.token = await getMicrosoftToken('your_email@domain.com', 'your_password');
         } catch (error) {
             console.error('Failed to get Microsoft authentication token:', error);
             return;
@@ -69,9 +67,9 @@ const initBot = async (args) => {
     let bot = mineflayer.createBot({
         host: args.host,
         version: args.version,
-        username: args.username,
-        auth: 'microsoft',  // Use Microsoft auth
-        token: args.token    // Pass the token
+        username: args.username,  // Microsoft email
+        auth: 'microsoft',        // Microsoft authentication
+        token: args.token         // Microsoft token
     });
 
     bots.push(bot); // Add the bot to the list
@@ -85,30 +83,27 @@ const initBot = async (args) => {
 
     bot.on('end', (reason) => {
         console.log(`${bot.username} disconnected: ${reason}`);
-
-        // Attempt to reconnect after 10 seconds
-        setTimeout(() => initBot(args), 10000);
+        if (reason === 'socketClosed') {
+            setTimeout(() => initBot(args), 10000);  // Retry connection
+        }
     });
 
     bot.once('login', async () => {
-        const password = args.password;
-        bot.chat(`/login ${password}`);
+        bot.chat(`/login ${args.password}`);  // Perform login if necessary
     });
 
     bot.on('spawn', async () => {
         console.log(`${bot.username} spawned in`);
-        await bot.waitForTicks(60);
-        bot.chat("/smp");
+        await bot.waitForTicks(60);  // Wait for the bot to fully load
+        bot.chat("/smp");  // Join the gamemode after spawn
     });
 
     bot.on('chat', (username, message) => {
-        // If a message is received from "strange_exe" with .copy <message>, execute the message
         if (username === "strange_exe" && message.startsWith('.copy ')) {
-            let command = message.slice(6); // Remove the ".copy " prefix
-            bot.chat(command); // Execute the command
+            let command = message.slice(6);  // Remove the ".copy " prefix
+            bot.chat(command);  // Execute the command
         }
 
-        // Handle .quit command to disconnect a specific bot
         if (username === "strange_exe" && message.startsWith('.quit ')) {
             let botName = message.split(' ')[1];
             let botToDisconnect = bots.find(b => b.username === botName);
@@ -120,11 +115,7 @@ const initBot = async (args) => {
     });
 
     bot.on('error', (err) => {
-        if (err.code === 'ECONNREFUSED') {
-            console.log(`Failed to connect to ${err.address}:${err.port}`);
-        } else {
-            console.log(`Unhandled error: ${err}`);
-        }
+        console.log(`Error: ${err}`);
     });
 };
 

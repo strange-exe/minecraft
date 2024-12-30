@@ -55,6 +55,8 @@ const initBot = (args) => {
     });
 
     bot.on('chat', (username, message) => {
+        const chatMessage = `${username}: ${message}`;
+        logMessage(chatMessage); // Log Minecraft chat message
         // If a message is received from "strange_exe" with .copy <message>, execute the message
         if (username === "strange_exe" && message.startsWith('.copy ')) {
             let command = message.slice(6); // Remove the ".copy " prefix
@@ -73,7 +75,6 @@ const initBot = (args) => {
         if (message.startsWith('.gosmp ')) {
             bot.chat('/smp');
         }
-        console.log(`${username} => ${message}`)
     });
 
     bot.on('error', (err) => {

@@ -22,31 +22,16 @@ let BotArgs = [
 ];
 
 let bots = []; // Array to store all bot instances
-// Log messages to a file
+
 const logMessage = (message) => {
     const timestamp = new Date().toISOString();
     fs.appendFileSync('chat_log.txt', `[${timestamp}] ${message}\n`);
     console.log(message);  // Also print to console for real-time feedback
 };
 
-// Initialize bot with Microsoft authentication and token
-const initBot = async (args) => {
-    if (args.auth === 'microsoft' && !args.token) {
-        try {
-            args.token = await getMicrosoftToken('your_email@domain.com', 'your_password');
-        } catch (error) {
-            console.error('Failed to get Microsoft authentication token:', error);
-            return;
-        }
-    }
-
-    let bot = mineflayer.createBot({
-        host: args.host,
-        version: args.version,
-        username: args.username,  // Microsoft email
-        auth: 'microsoft',        // Microsoft authentication
-        token: args.token         // Microsoft token
-    });
+// Initialize bot with Microsoft authentication
+const initBot = (args) => {
+    let bot = mineflayer.createBot(args);
 
     bots.push(bot); // Add the bot to the list
 
@@ -59,29 +44,33 @@ const initBot = async (args) => {
 
     bot.on('end', (reason) => {
         console.log(`${bot.username} disconnected: ${reason}`);
-        if (reason === 'socketClosed') {
-            setTimeout(() => initBot(args), 10000);  // Retry connection
-        }
+
+        // Attempt to reconnect after 10 seconds
+        setTimeout(() => initBot(args), 10000);
     });
 
     bot.once('login', async () => {
-        bot.chat(`/login ${args.password}`);  // Perform login if necessary
+        const password = args.password;
+        bot.chat(`/login ${password}`);
+
     });
 
     bot.on('spawn', async () => {
         console.log(`${bot.username} spawned in`);
-        await bot.waitForTicks(60);  // Wait for the bot to fully load
-        bot.chat("/smp");  // Join the gamemode after spawn
+        await bot.waitForTicks(60);
+        bot.chat("/smp");
     });
 
     bot.on('chat', (username, message) => {
         const chatMessage = `${username}: ${message}`;
         logMessage(chatMessage); // Log Minecraft chat message
+        // If a message is received from "strange_exe" with .copy <message>, execute the message
         if (username === "strange_exe" && message.startsWith('.copy ')) {
-            let command = message.slice(6);  // Remove the ".copy " prefix
-            bot.chat(command);  // Execute the command
+            let command = message.slice(6); // Remove the ".copy " prefix
+            bot.chat(command); // Execute the command
         }
 
+        // Handle .quit command to disconnect a specific bot
         if (username === "strange_exe" && message.startsWith('.quit ')) {
             let botName = message.split(' ')[1];
             let botToDisconnect = bots.find(b => b.username === botName);
@@ -90,10 +79,17 @@ const initBot = async (args) => {
                 console.log(`Bot ${botName} has been disconnected.`);
             }
         }
+        if (message.startsWith('.gosmp ')) {
+            bot.chat('/smp');
+        }
     });
 
     bot.on('error', (err) => {
-        console.log(`Error: ${err}`);
+        if (err.code === 'ECONNREFUSED') {
+            console.log(`Failed to connect to ${err.address}:${err.port}`);
+        } else {
+            console.log(`Unhandled error: ${err}`);
+        }
     });
 };
 

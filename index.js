@@ -22,6 +22,12 @@ let BotArgs = [
 
 let bots = []; // Array to store all bot instances
 
+const logMessage = (message) => {
+    const timestamp = new Date().toISOString();
+    fs.appendFileSync('chat_log.txt', `[${timestamp}] ${message}\n`);
+    console.log(message);  // Also print to console for real-time feedback
+};
+
 // Initialize bot with Microsoft authentication
 const initBot = (args) => {
     let bot = mineflayer.createBot(args);

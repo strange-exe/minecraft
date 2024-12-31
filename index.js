@@ -1,99 +1,97 @@
 const mineflayer = require('mineflayer');
-const fs = require('fs');  // For logging messages to a file
+const fs = require('fs');
 const readline = require('readline');
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
 
-let BotArgs = [
-    {
-        host: 'mc.leftypvp.net',
-        version: '1.8.9',
-        username: 'STRANGE', // Offline account
-        password: 'strange.exe'    // Password for offline account
-    },
-    {
-        host: 'mc.leftypvp.net',
-        version: '1.8.9',
-        username: '_ABHAY_GAMING_', // Offline account
-        password: 'abhaygaming'    // Password for offline account
-    }
-];
-
-let bots = []; // Array to store all bot instances
-
+// Function to log messages to a file
 const logMessage = (message) => {
     const timestamp = new Date().toISOString();
     fs.appendFileSync('chat_log.txt', `[${timestamp}] ${message}\n`);
-    console.log(message);  // Also print to console for real-time feedback
+    console.log(message);
 };
 
-// Initialize bot with Microsoft authentication
+// Function to initialize a bot
 const initBot = (args) => {
-    let bot = mineflayer.createBot(args);
-
-    bots.push(bot); // Add the bot to the list
-
-    rl.on('line', line => bot.chat(line));
+    const bot = mineflayer.createBot(args);
 
     bot.on('login', () => {
-        let botSocket = bot._client.socket;
-        console.log(`Logged in to ${botSocket.server ? botSocket.server : botSocket._host}`);
+        console.log(`${bot.username} logged in.`);
+        bot.chat(`/login ${args.password}`);
     });
 
-    bot.on('end', (reason) => {
-        console.log(`${bot.username} disconnected: ${reason}`);
-
-        // Attempt to reconnect after 10 seconds
-        setTimeout(() => initBot(args), 10000);
-    });
-
-    bot.once('login', async () => {
-        const password = args.password;
-        bot.chat(`/login ${password}`);
-
-    });
-
-    bot.on('spawn', async () => {
-        console.log(`${bot.username} spawned in`);
-        await bot.waitForTicks(60);
+    bot.on('spawn', () => {
+        console.log(`${bot.username} spawned in.`);
         bot.chat("/smp");
     });
 
     bot.on('chat', (username, message) => {
         const chatMessage = `${username}: ${message}`;
-        logMessage(chatMessage); // Log Minecraft chat message
-        // If a message is received from "strange_exe" with .copy <message>, execute the message
-        if (username === "strange_exe" && message.startsWith('.copy ')) {
-            let command = message.slice(6); // Remove the ".copy " prefix
-            bot.chat(command); // Execute the command
-        }
+        logMessage(chatMessage);
 
-        // Handle .quit command to disconnect a specific bot
-        if (username === "strange_exe" && message.startsWith('.quit ')) {
-            let botName = message.split(' ')[1];
-            let botToDisconnect = bots.find(b => b.username === botName);
-            if (botToDisconnect) {
-                botToDisconnect.quit('Disconnected by command');
-                console.log(`Bot ${botName} has been disconnected.`);
+        // Commands handling
+        if (username === "strange_exe") {
+            if (message.startsWith('.copy ')) {
+                const command = message.slice(6);
+                bot.chat(command);
+            }
+
+            if (message.startsWith('.quit ')) {
+                const botName = message.split(' ')[1];
+                if (bot.username === botName) {
+                    bot.quit('Disconnected by command');
+                    console.log(`Bot ${botName} has been disconnected.`);
+                }
             }
         }
-        if (message.startsWith('.gosmp ')) {
+
+        if (message.startsWith('.gosmp')) {
             bot.chat('/smp');
         }
     });
 
+    bot.on('end', (reason) => {
+        console.log(`${bot.username} disconnected: ${reason}`);
+        setTimeout(() => initBot(args), 10000); // Reconnect after 10 seconds
+    });
+
     bot.on('error', (err) => {
         if (err.code === 'ECONNREFUSED') {
-            console.log(`Failed to connect to ${err.address}:${err.port}`);
+            console.error(`Failed to connect to ${err.address}:${err.port}`);
         } else {
-            console.log(`Unhandled error: ${err}`);
+            console.error(`Unhandled error: ${err}`);
         }
+    });
+
+    rl.on('line', (line) => {
+        bot.chat(line); // Allow manual commands via console
     });
 };
 
-// Initialize bots with their configurations
-BotArgs.forEach(args => {
-    initBot(args); // Initialize both offline and Microsoft bots
-});
+// Function to start all bots
+const startBots = () => {
+    const BotArgs = [
+        {
+            host: 'mc.leftypvp.net',
+            version: '1.8.9',
+            username: 'STRANGE',
+            password: 'strange.exe'
+        },
+        {
+            host: 'mc.leftypvp.net',
+            version: '1.8.9',
+            username: '_ABHAY_GAMING_',
+            password: 'abhaygaming'
+        }
+    ];
+
+    BotArgs.forEach(initBot);
+};
+
+// Start bots when the app runs
+if (require.main === module) {
+    startBots();
+}

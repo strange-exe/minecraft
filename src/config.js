@@ -19,11 +19,11 @@ const config = {
             password: 'abhaygaming',
             auth: 'offline'
         }
-        // {
-        //     username: 'ThunderBlaze',
-        //     password: 'Blaze.exe',
-        //     auth: 'offline'
-        // }
+        {
+            username: 'ThunderBlaze',
+            password: 'Blaze.exe',
+            auth: 'offline'
+        }
     ]
 };
 

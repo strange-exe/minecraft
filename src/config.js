@@ -1,7 +1,7 @@
 const config = {
     defaultServer: {
         host: 'mc.leftypvp.net',
-        version: '1.8.9'
+        version: '1.19.1'
     },
     offlineAccounts: [
         {

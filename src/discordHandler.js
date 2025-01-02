@@ -49,12 +49,12 @@ class DiscordHandler {
   }
 
   handleInput(message) {
-    // Process the message content and send it as a bot message
+    // Directly echo the message content sent by any user
     const botMessage = message.content;
 
-    console.log(`Input from ${message.author.tag}: ${botMessage}`);
+    console.log(`${botMessage}`);
 
-    // Echo the message from the bot
+    // Send the same message from the bot
     this.logChannel.send(botMessage).catch(err => {
       console.error('Failed to send message as bot:', err);
     });

@@ -72,7 +72,7 @@ const initBot = async (args) => {
             const processCommand = (username, command, args) => {
                 if (username.trim() !== 'strange_exe') {
                     console.log(`Command from non-authorized user » ${username}`);
-                    bot.chat(`Better luck next time :rofl: @${username}`);
+                    
                     return;
                 }
 

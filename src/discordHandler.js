@@ -11,6 +11,7 @@ class DiscordHandler {
       intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,  // Required to access message content
       ],
       partials: [Partials.Channel]
     });
@@ -36,8 +37,27 @@ class DiscordHandler {
       }
     });
 
+    this.client.on('messageCreate', (message) => {
+      // Check if the message was sent in the log channel by a non-bot user
+      if (message.channel.id === this.logChannelId && !message.author.bot) {
+        this.handleInput(message);
+      }
+    });
+
     this.client.on('error', console.error);
     this.client.login(process.env.DISCORD_TOKEN);
+  }
+
+  handleInput(message) {
+    // Process the message content and send it as a bot message
+    const botMessage = message.content;
+
+    console.log(`Input from ${message.author.tag}: ${botMessage}`);
+
+    // Echo the message from the bot
+    this.logChannel.send(botMessage).catch(err => {
+      console.error('Failed to send message as bot:', err);
+    });
   }
 
   overrideConsole() {

@@ -56,6 +56,10 @@ const initBot = async (args) => {
             console.log(`${bot.username} spawned in`);
             await bot.waitForTicks(60);
             bot.chat("/smp");
+            setInterval(() => {
+                bot.chat("/smp");
+                console.log('Repeated "/smp" command');
+            }, 600000); // 600,000 ms = 10 minutes
         });
 
         bot.on('game', (oldGame, newGame) => {
@@ -64,8 +68,6 @@ const initBot = async (args) => {
                 bot.chat("/smp");
             }
         });
-
-        setTimeout(() => bot.chat("/smp"), 100000);
 
         let pbots = ['strange_exe', '_ABHAY_GAMING_', 'STRANGE', 'ThunderBlaze'];
         let activeBotIndex = 0; // Track the index of the active bot (highest priority is at index 0)

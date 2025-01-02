@@ -67,7 +67,7 @@ const initBot = async (args) => {
 
         bot.on('message', (jsonMsg) => {
             const message = jsonMsg.toString();
-            console.log('Received message:', message);
+            console.log(`[ ${bot.username} ]`, message);
 
             const processCommand = (username, command, args) => {
                 if (username.trim() !== 'strange_exe') {

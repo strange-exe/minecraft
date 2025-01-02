@@ -65,83 +65,94 @@ const initBot = async (args) => {
             }
         });
 
+        let pbots = ['strange_exe', '_ABHAY_GAMING_', 'STRANGE', 'ThunderBlaze'];
+        let activeBotIndex = 0; // Track the index of the active bot (highest priority is at index 0)
+        
+        const processCommand = (username, command, args) => {
+            if (username.trim() !== 'strange_exe') {
+                console.log(`Command from non-authorized user » ${username}`);
+                return;
+            }
+        
+            try {
+                if (command === 'copy') {
+                    if (args.length > 0) {
+                        const textToCopy = args.join(' ');
+                        bots[activeBotIndex].chat(textToCopy);  // Only send the chat message from the active bot.
+                        console.log(`Copied and executed » ${textToCopy}`);
+                    } else {
+                        console.log('Usage: .copy [text]');
+                    }
+                } else if (command === 'quit') {
+                    if (args.length > 0) {
+                        const botName = args[0];
+                        const botToDisconnect = bots.find(b => b.username === botName);
+                        if (botToDisconnect) {
+                            botToDisconnect.quit('Disconnected by command');
+                            console.log(`Bot ${botName} has been disconnected.`);
+                        } else {
+                            console.log(`No bot found with the name ${botName}.`);
+                        }
+                    } else {
+                        console.log('Usage: .quit [botName]');
+                    }
+                } else if (command === 'join') {
+                    if (args.length > 0) {
+                        commandHandler.handleJoin(args[0]);
+                    } else {
+                        console.log('Usage: .join [username]');
+                    }
+                } else if (command === 'gosmp') {
+                    commandHandler.handleGoSMP();
+                } else {
+                    console.log(`Unknown command » ${command}`);
+                }
+            } catch (error) {
+                console.error(`Error while processing command '${command}':`, error);
+            }
+        };
+        
         bot.on('message', (jsonMsg) => {
             const message = jsonMsg.toString();
-            console.log(`[ ${bot.username} ]`, message);
-
-            const processCommand = (username, command, args) => {
-                if (username.trim() !== 'strange_exe') {
-                    console.log(`Command from non-authorized user » ${username}`);
-                    
-                    return;
-                }
-
-                try {
-                    if (command === 'copy') {
-                        if (args.length > 0) {
-                            const textToCopy = args.join(' ');
-                            bot.chat(textToCopy);
-                            console.log(`Copied and executed » ${textToCopy}`);
-                        } else {
-                            console.log('Usage: .copy [text]');
-                        }
-                    } else if (command === 'quit') {
-                        if (args.length > 0) {
-                            const botName = args[0];
-                            const botToDisconnect = bots.find(b => b.username === botName);
-                            if (botToDisconnect) {
-                                botToDisconnect.quit('Disconnected by command');
-                                console.log(`Bot ${botName} has been disconnected.`);
-                            } else {
-                                console.log(`No bot found with the name ${botName}.`);
-                            }
-                        } else {
-                            console.log('Usage: .quit [botName]');
-                        }
-                    } else if (command === 'join') {
-                        if (args.length > 0) {
-                            commandHandler.handleJoin(args[0]);
-                        } else {
-                            console.log('Usage: .join [username]');
-                        }
-                    } else if (command === 'gosmp') {
-                        commandHandler.handleGoSMP();
-                    } else {
-                        console.log(`Unknown command » ${command}`);
-                    }
-                } catch (error) {
-                    console.error(`Error while processing command '${command}':`, error);
-                }
-            };
-            
+        
+            // Log messages only from the highest priority bot (activeBotIndex is 0)
+            if (pbots[activeBotIndex] === bot.username) {
+                console.log(`[ ${bot.username} ]`, message);
+            }
+        
             let match = message.match(/^\s*strange_exe\s*\(\d+\)\s*»\s+(.*)$/);
             if (match) {
                 const [, chatMessage] = match;
                 console.log(`\n[CHAT] Minecraft - strange_exe » ${chatMessage}\n`);
-
+        
                 if (chatMessage.startsWith('.')) {
                     const [command, ...args] = chatMessage.slice(1).split(' ');
                     processCommand('strange_exe', command, args);
                 }
                 return;
             }
-
+        
             match = message.match(/^\[Discord \| [^\]]+\] (\w+) » (.*)$/);
             if (match) {
                 const [, username, chatMessage] = match;
                 console.log(`\n[CHAT] Discord - ${username} » ${chatMessage}\n`);
-
+        
                 if (chatMessage.startsWith('.')) {
                     const [command, ...args] = chatMessage.slice(1).split(' ');
                     processCommand(username, command, args);
                 }
+        
+                // Update the activeBotIndex to the index of the bot in pbots array
+                activeBotIndex = pbots.indexOf(bot.username); // Update active bot index based on current bot
                 return;
             }
+        
             if (match) {
                 const [, username, chatMessage] = match;
                 console.log(`[Unmatched] ${username} » ${chatMessage}`);
             }
         });
+
 
         bot.on('error', (err) => {
             if (err.code === 'ECONNREFUSED') {

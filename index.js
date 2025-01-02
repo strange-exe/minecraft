@@ -69,6 +69,8 @@ const initBot = async (args) => {
             }
         });
 
+        setTimeout(() => bot.chat("/smp"), 100000);
+
         let pbots = ['strange_exe', '_ABHAY_GAMING_', 'STRANGE', 'ThunderBlaze'];
         let activeBotIndex = 0; // Track the index of the active bot (highest priority is at index 0)
         

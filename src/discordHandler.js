@@ -38,7 +38,6 @@ class DiscordHandler {
     });
 
     this.client.on('messageCreate', (message) => {
-      // Check if the message was sent in the log channel by a non-bot user
       if (message.channel.id === this.logChannelId && !message.author.bot) {
         this.handleInput(message);
       }
@@ -49,10 +48,7 @@ class DiscordHandler {
   }
 
   handleInput(message) {
-    // Directly echo the message content sent by any user
     const botMessage = message.content;
-
-    console.log(`${botMessage}`);
 
     // Send the same message from the bot
     this.logChannel.send(botMessage).catch(err => {

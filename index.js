@@ -4,6 +4,7 @@ const config = require('./src/config');
 const { getMicrosoftAuth } = require('./src/auth');
 const CommandHandler = require('./src/commands');
 const DiscordHandler = require('./src/discordHandler');
+const tpManager = require('./src/tpManager');
 
 // Initialize Discord Handler
 new DiscordHandler();
@@ -43,9 +44,6 @@ const initBot = async (args) => {
 
         rl.on('line', line => bot.chat(line));
 
-
-        
-
         bot.on('login', () => {
             let botSocket = bot._client.socket;
             console.log(`Logged in to ${botSocket.server ? botSocket.server : botSocket._host}`);
@@ -60,95 +58,104 @@ const initBot = async (args) => {
             await bot.waitForTicks(60);
             bot.chat("/smp");
             setInterval(() => {
-        
-            bot.chat('/smp');  // Example Minecraft command
-        }, intervalTime);
-        });
-
-        bot.on('game', (oldGame, newGame) => {
-            if (oldGame && newGame && oldGame.dimension !== newGame.dimension) {
-                console.log(`Dimension changed from ${oldGame.dimension} to ${newGame.dimension}`);
-                bot.chat("/smp");
-            }
+                bot.chat('/smp');
+            }, intervalTime);
         });
 
         bot.on('message', (jsonMsg) => {
-            const message = jsonMsg.toString();
-            console.log(`[ bot.username} ] :`, message);
+            const message = jsonMsg.toString().trim();
+            console.log(`[${bot.username}]:`, message);
 
-            const processCommand = (username, command, args) => {
-                if (username.trim() !== 'strange_exe') {
-                    console.log(`Command from non-authorized user » ${username}`);
-                    bot.chat(`Better luck next time :rofl: @${username}`);
-                    return;
+            // Check for teleport requests
+            if (message.includes('has requested to teleport to you')) {
+                const requester = message.split(' ')[0];
+                if (tpManager.isAllowed(requester)) {
+                    bot.chat(`/tpaccept ${requester}`);
+                    console.log(`Auto-accepted TP request from ${requester}`);
                 }
+            }
 
-                try {
-                    if (command === 'copy') {
+            // Handle commands from chat
+            let match = message.match(/^\s*strange_exe\s*\(\d+\)\s*»\s+(.*)$/);
+            if (match) {
+                const [, chatMessage] = match;
+                if (chatMessage.startsWith('.')) {
+                    const [command, ...args] = chatMessage.slice(1).split(' ');
+                    processCommand('strange_exe', command, args);
+                }
+            }
+
+            // Handle commands from Discord
+            match = message.match(/^\[Discord \| [^\]]+\] (\w+) » (.*)$/);
+            if (match) {
+                const [, username, chatMessage] = match;
+                if (chatMessage.startsWith('.')) {
+                    const [command, ...args] = chatMessage.slice(1).split(' ');
+                    processCommand(username, command, args);
+                }
+            }
+        });
+
+        function processCommand(username, command, args) {
+            if (username.trim() !== 'strange_exe') {
+                console.log(`Command from non-authorized user » ${username}`);
+                bot.chat(`Better luck next time :rofl: @${username}`);
+                return;
+            }
+
+            try {
+                switch(command) {
+                    case 'addtp':
+                        if (args.length > 0) {
+                            const userToAdd = args[0];
+                            tpManager.addUser(userToAdd);
+                            bot.chat(`Added ${userToAdd} to auto-tp accept list`);
+                            console.log(`Added ${userToAdd} to auto-tp accept list`);
+                        }
+                        break;
+                    case 'removetp':
+                        if (args.length > 0) {
+                            const userToRemove = args[0];
+                            tpManager.removeUser(userToRemove);
+                            bot.chat(`Removed ${userToRemove} from auto-tp accept list`);
+                            console.log(`Removed ${userToRemove} from auto-tp accept list`);
+                        }
+                        break;
+                    case 'listtp':
+                        const userList = tpManager.listUsers().join(', ') || 'None';
+                        bot.chat(`Allowed TP users: ${userList}`);
+                        console.log(`Allowed TP users: ${userList}`);
+                        break;
+                    case 'copy':
                         if (args.length > 0) {
                             const textToCopy = args.join(' ');
                             bot.chat(textToCopy);
                             console.log(`Copied and executed » ${textToCopy}`);
-                        } else {
-                            console.log('Usage: .copy [text]');
                         }
-                    } else if (command === 'quit') {
+                        break;
+                    case 'quit':
                         if (args.length > 0) {
                             const botName = args[0];
                             const botToDisconnect = bots.find(b => b.username === botName);
                             if (botToDisconnect) {
                                 botToDisconnect.quit('Disconnected by command');
                                 console.log(`Bot ${botName} has been disconnected.`);
-                            } else {
-                                console.log(`No bot found with the name ${botName}.`);
                             }
-                        } else {
-                            console.log('Usage: .quit [botName]');
                         }
-                    } else if (command === 'join') {
+                        break;
+                    case 'join':
                         if (args.length > 0) {
                             commandHandler.handleJoin(args[0]);
-                        } else {
-                            console.log('Usage: .join [username]');
                         }
-                    } else if (command === 'gosmp') {
+                        break;
+                    case 'gosmp':
                         commandHandler.handleGoSMP();
-                    } else {
-                        console.log(`Unknown command » ${command}`);
-                    }
-                } catch (error) {
-                    console.error(`Error while processing command '${command}':`, error);
+                        break;
                 }
-            };
-            
-            let match = message.match(/^\s*strange_exe\s*\(\d+\)\s*»\s+(.*)$/);
-            if (match) {
-                const [, chatMessage] = match;
-                console.log(`\n[CHAT] Minecraft - strange_exe » ${chatMessage}\n`);
-
-                if (chatMessage.startsWith('.')) {
-                    const [command, ...args] = chatMessage.slice(1).split(' ');
-                    processCommand('strange_exe', command, args);
-                }
-                return;
+            } catch (error) {
+                console.error(`Error while processing command '${command}':`, error);
             }
-
-            match = message.match(/^\[Discord \| [^\]]+\] (\w+) » (.*)$/);
-            if (match) {
-                const [, username, chatMessage] = match;
-                console.log(`\n[CHAT] Discord - ${username} » ${chatMessage}\n`);
-
-                if (chatMessage.startsWith('.')) {
-                    const [command, ...args] = chatMessage.slice(1).split(' ');
-                    processCommand(username, command, args);
-                }
-                return;
-            }
-            if (match) {
-                const [, username, chatMessage] = match;
-                console.log(`[Unmatched] ${username} » ${chatMessage}`);
-            }
-        });
+        }
 
         bot.on('error', (err) => {
             if (err.code === 'ECONNREFUSED') {

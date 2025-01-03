@@ -54,12 +54,10 @@ const initBot = async (args) => {
 
         bot.on('spawn', async () => {
             console.log(`${bot.username} spawned in`);
-            await bot.waitForTicks(60);
             bot.chat("/smp");
             setInterval(() => {
                 bot.chat("/smp");
-                console.log('Repeated "/smp" command');
-            }, 600000); // 600,000 ms = 10 minutes
+            }, 600000)
         });
 
         bot.on('game', (oldGame, newGame) => {

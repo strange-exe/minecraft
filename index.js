@@ -29,6 +29,9 @@ const initBot = async (args) => {
         const commandHandler = new CommandHandler(bot, activeUsers);
         bots.push(bot);
 
+        // Initialize Keep-Alive Mechanism
+        initKeepAlive(bot);
+
         bot.on('login', () => {
             const botSocket = bot._client.socket;
             console.log(`Logged in to ${botSocket.server ? botSocket.server : botSocket._host}`);
@@ -40,7 +43,6 @@ const initBot = async (args) => {
         bot.on('spawn', () => {
             console.log(`${bot.username} spawned in`);
             bot.chat('/smp');
-            setInterval(() => bot.chat('/smp'), 600000); // Periodic SMP chat every 10 minutes
         });
 
         bot.on('game', (oldGame, newGame) => {
@@ -85,12 +87,35 @@ const initBot = async (args) => {
     }
 };
 
+const initKeepAlive = (bot) => {
+    const interval = 5 * 60 * 1000; // 5 minutes
+
+    const keepAlive = () => {
+        if (!bot || !bot.player) return; // Ensure bot is connected
+        console.log(`[Keep-Alive] Sending keep-alive command for ${bot.username}`);
+        bot.chat('/ping'); // Replace '/ping' with a harmless command if needed
+    };
+
+    // Start the keep-alive mechanism
+    const keepAliveInterval = setInterval(keepAlive, interval);
+
+    // Clear the interval on bot disconnect
+    bot.on('end', () => {
+        console.log(`[Keep-Alive] Stopping keep-alive for ${bot.username}`);
+        clearInterval(keepAliveInterval);
+    });
+
+    bot.on('error', (err) => {
+        console.error(`[Keep-Alive] Error detected for ${bot.username}:`, err);
+        clearInterval(keepAliveInterval);
+    });
+};
+
 const handleChatMessage = (message, bot, commandHandler) => {
     const pbots = ['strange_exe', '_ABHAY_GAMING_', 'STRANGE', 'ThunderBlaze'];
-    const match = message.match(/^\s*strange_exe\s*\(\d+\)\s*»\s+(.*)$/) || message.match(/^\[Discord \| [^\]]+\] (\w+) » (.*)$/);
-
+    const match = message.match(/^\s*(?<username>\w+)\s*\(\d+\)\s*»\s+(?<chatMessage>.*)$/);
     if (match) {
-        const [username, chatMessage] = match.slice(1);
+        const { username, chatMessage } = match.groups;
         console.log(`[CHAT] ${username} » ${chatMessage}`);
 
         if (chatMessage.startsWith('.')) {
@@ -109,46 +134,46 @@ const processCommand = (username, command, args, commandHandler, bot) => {
         return;
     }
 
-    try {
-        switch (command) {
-            case 'copy':
-                if (args.length > 0) {
-                    const textToCopy = args.join(' ');
-                    bot.chat(textToCopy);
-                    console.log(`Copied and executed » ${textToCopy}`);
+    const commandMap = {
+        copy: () => {
+            if (args.length > 0) {
+                const textToCopy = args.join(' ');
+                bot.chat(textToCopy);
+                console.log(`Copied and executed » ${textToCopy}`);
+            } else {
+                console.log('Usage: .copy [text]');
+            }
+        },
+        quit: () => {
+            if (args.length > 0) {
+                const botName = args[0];
+                const botToDisconnect = bots.find((b) => b.username === botName);
+                if (botToDisconnect) {
+                    botToDisconnect.quit('Disconnected by command');
+                    console.log(`Bot ${botName} has been disconnected.`);
                 } else {
-                    console.log('Usage: .copy [text]');
+                    console.log(`No bot found with the name ${botName}.`);
                 }
-                break;
-            case 'quit':
-                if (args.length > 0) {
-                    const botName = args[0];
-                    const botToDisconnect = bots.find((b) => b.username === botName);
-                    if (botToDisconnect) {
-                        botToDisconnect.quit('Disconnected by command');
-                        console.log(`Bot ${botName} has been disconnected.`);
-                    } else {
-                        console.log(`No bot found with the name ${botName}.`);
-                    }
-                } else {
-                    console.log('Usage: .quit [botName]');
-                }
-                break;
-            case 'join':
-                if (args.length > 0) {
-                    commandHandler.handleJoin(args[0]);
-                } else {
-                    console.log('Usage: .join [username]');
-                }
-                break;
-            case 'gosmp':
-                commandHandler.handleGoSMP();
-                break;
-            default:
-                console.log(`Unknown command » ${command}`);
-        }
-    } catch (error) {
-        console.error(`Error while processing command '${command}':`, error);
+            } else {
+                console.log('Usage: .quit [botName]');
+            }
+        },
+        join: () => {
+            if (args.length > 0) {
+                commandHandler.handleJoin(args[0]);
+            } else {
+                console.log('Usage: .join [username]');
+            }
+        },
+        gosmp: () => {
+            commandHandler.handleGoSMP();
+        },
+    };
+
+    if (commandMap[command]) {
+        commandMap[command]();
+    } else {
+        console.log(`Unknown command » ${command}`);
     }
 };
 
@@ -160,6 +185,7 @@ const addMicrosoftBot = (email) => {
     initBot(args);
 };
 
+// Initialize offline bots
 config.offlineAccounts.forEach(initBot);
 
 module.exports = { addMicrosoftBot };

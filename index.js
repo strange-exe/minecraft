@@ -80,13 +80,23 @@ const initBot = async (args) => {
                 }
             }
 
-            // Handle chat commands
-            const match = message.match(/^\s*strange_exe\s*\(\d+\)\s*»\s+(.*)$/);
+            // Handle commands from chat
+            let match = message.match(/^\s*strange_exe\s*\(\d+\)\s*»\s+(.*)$/);
             if (match) {
                 const [, chatMessage] = match;
                 if (chatMessage.startsWith('.')) {
                     const [command, ...args] = chatMessage.slice(1).split(' ');
                     processCommand('strange_exe', command, args);
+                }
+            }
+
+            // Handle commands from Discord
+            match = message.match(/^\[Discord \| [^\]]+\] (\w+) » (.*)$/);
+            if (match) {
+                const [, username, chatMessage] = match;
+                if (chatMessage.startsWith('.')) {
+                    const [command, ...args] = chatMessage.slice(1).split(' ');
+                    processCommand(username, command, args);
                 }
             }
         });

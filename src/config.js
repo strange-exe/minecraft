@@ -13,22 +13,22 @@ const config = {
             username: 'STRANGE',
             password: 'strange.exe',
             auth: 'offline'
-        },
-        {
-            username: '_ABHAY_GAMING_',
-            password: 'abhaygaming',
-            auth: 'offline'
-        },
-        {
-            username: 'Termi',
-            password: 'termi.exe',
-            auth: 'offline'
-        },
-        {
-            username: 'ThunderBlaze',
-            password: 'Blaze.exe',
-            auth: 'offline'
         }
+        // {
+        //     username: '_ABHAY_GAMING_',
+        //     password: 'abhaygaming',
+        //     auth: 'offline'
+        // },
+        // {
+        //     username: 'Termi',
+        //     password: 'termi.exe',
+        //     auth: 'offline'
+        // },
+        // {
+        //     username: 'ThunderBlaze',
+        //     password: 'Blaze.exe',
+        //     auth: 'offline'
+        // }
     ]
 };
 

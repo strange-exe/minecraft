@@ -133,11 +133,28 @@ const initBot = async (args) => {
                             const botName = args[0];
                             const botToDisconnect = bots.find(b => b.username === botName);
                             if (botToDisconnect) {
-                                botToDisconnect.quit('Disconnected by command');
-                                console.log(`Bot ${botName} has been disconnected.`);
+                                try {
+                                    botToDisconnect.quit('Disconnected by command');
+                                    console.log(`Bot ${botName} has been disconnected.`);
+                                    
+                                    // Perform additional cleanup
+                                    if (botToDisconnect._client && botToDisconnect._client.socket) {
+                                        botToDisconnect._client.socket.destroy(); // Ensure the socket is closed
+                                    }
+                                    
+                                    bots = bots.filter(b => b !== botToDisconnect); // Remove from the bots array
+                                } catch (error) {
+                                    console.error(`Error disconnecting bot ${botName}:`, error);
+                                }
+                            } else {
+                                console.log(`No bot found with username ${botName}.`);
+                                bot.chat(`Bot ${botName} not found.`);
                             }
+                        } else {
+                            bot.chat('Please provide the username of the bot to disconnect.');
                         }
                         break;
+
                     case 'join':
                         if (args.length > 0) {
                             commandHandler.handleJoin(args[0]);

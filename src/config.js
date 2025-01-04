@@ -20,6 +20,11 @@ const config = {
             auth: 'offline'
         },
         {
+            username: 'Termi',
+            password: 'termi.exe',
+            auth: 'offline'
+        },
+        {
             username: 'ThunderBlaze',
             password: 'Blaze.exe',
             auth: 'offline'

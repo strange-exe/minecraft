@@ -1,7 +1,6 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 const config = require('./src/config');
-const { getMicrosoftAuth } = require('./src/auth');
 const CommandHandler = require('./src/commands');
 const DiscordHandler = require('./src/discordHandler');
 const tpManager = require('./src/tpManager');
@@ -21,15 +20,14 @@ const initBot = async (args) => {
     try {
         let botOptions = {
             host: config.defaultServer.host,
-            version: config.defaultServer.version
+            version: config.defaultServer.version,
+            auth: args.auth
         };
 
         if (args.auth === 'microsoft') {
             botOptions = {
                 ...botOptions,
-                auth: 'microsoft',
-                username: config.offlineAccounts.username,
-                password: config.offlineAccounts.password
+                username: args.username
             };
         } else {
             botOptions = {
@@ -37,9 +35,9 @@ const initBot = async (args) => {
                 username: args.username
             };
         }
+
         const intervalTime = 300000;
         const bot = mineflayer.createBot(botOptions);
-        const commandHandler = new CommandHandler(bot, activeUsers);
         bots.push(bot);
 
         rl.on('line', line => bot.chat(line));
@@ -75,13 +73,13 @@ const initBot = async (args) => {
                 }
             }
 
-            // Handle commands from chat
-            let match = message.match(/^\s*strange_exe\s*\(\d+\)\s*»\s+(.*)$/);
+            // Handle commands from chat with Microsoft account format
+            let match = message.match(/^(?:\[.*?\] )?(\w+)\s*»\s*(.*)$/);
             if (match) {
-                const [, chatMessage] = match;
+                const [, username, chatMessage] = match;
                 if (chatMessage.startsWith('.')) {
                     const [command, ...args] = chatMessage.slice(1).split(' ');
-                    processCommand('strange_exe', command, args);
+                    processCommand(username, command, args);
                 }
             }
 
@@ -99,12 +97,12 @@ const initBot = async (args) => {
         function processCommand(username, command, args) {
             if (username.trim() !== 'strange_exe') {
                 console.log(`Command from non-authorized user » ${username}`);
-                bot.chat(`Better luck next time :rofl: @${username}`);
+                bot.chat(`Better luck next time :rofl:`);
                 return;
             }
 
             try {
-                switch(command) {
+                switch(command.toLowerCase()) {
                     case 'addtp':
                         if (args.length > 0) {
                             const userToAdd = args[0];
@@ -138,18 +136,25 @@ const initBot = async (args) => {
                             const botName = args[0];
                             const botToDisconnect = bots.find(b => b.username === botName);
                             if (botToDisconnect) {
-                                botToDisconnect.quit('Disconnected by command');
+                                botToDisconnect.end('Disconnected by command');
+                                bots = bots.filter(b => b !== botToDisconnect);
                                 console.log(`Bot ${botName} has been disconnected.`);
                             }
+                        } else {
+                            bot.end('Disconnected by command');
+                            bots = bots.filter(b => b !== bot);
+                            console.log(`Bot ${bot.username} has been disconnected.`);
                         }
                         break;
                     case 'join':
                         if (args.length > 0) {
-                            commandHandler.handleJoin(args[0]);
+                            bot.end('Reconnecting to server');
+                            console.log(`Reconnecting to server: ${args[0]}`);
                         }
                         break;
                     case 'gosmp':
-                        commandHandler.handleGoSMP();
+                        bot.chat('/smp');
+                        console.log('Executing SMP command');
                         break;
                 }
             } catch (error) {
@@ -167,7 +172,12 @@ const initBot = async (args) => {
 
         bot.on('end', (reason) => {
             console.log(`${bot.username} disconnected » ${reason}`);
-            setTimeout(() => initBot(args), 10000);
+            bots = bots.filter(b => b !== bot);
+            
+            // Only reconnect if the reason is "Reconnecting to server"
+            if (reason === 'Reconnecting to server') {
+                setTimeout(() => initBot(args), 5000);
+            }
         });
     } catch (error) {
         console.error('Failed to initialize bot »', error);
@@ -183,6 +193,14 @@ const addMicrosoftBot = (email) => {
     initBot(args);
 };
 
-config.offlineAccounts.forEach(initBot);
+if (config.offlineAccounts) {
+    config.offlineAccounts.forEach(account => {
+        initBot({
+            username: account.username,
+            auth: 'offline',
+            password: account.password
+        });
+    });
+}
 
 module.exports = { addMicrosoftBot };

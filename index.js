@@ -1,9 +1,10 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 const config = require('./src/config');
-const commandHandler = require('./src/commands');
+const CommandHandler = require('./src/commands');
 const DiscordHandler = require('./src/discordHandler');
 const tpManager = require('./src/tpManager');
+const { setupBotEvents, cleanupBot } = require('./src/botEvents');
 
 // Initialize Discord Handler
 new DiscordHandler();
@@ -38,66 +39,13 @@ const initBot = async (args) => {
 
         const intervalTime = 300000;
         const bot = mineflayer.createBot(botOptions);
+        const commandHandler = new CommandHandler(bot, activeUsers);
         bots.push(bot);
-
-        rl.on('line', line => bot.chat(line));
-
-        bot.on('login', () => {
-            let botSocket = bot._client.socket;
-            console.log(`Logged in to ${botSocket.server ? botSocket.server : botSocket._host}`);
-            
-            if (args.auth === 'offline' && args.password) {
-                bot.chat(`/login ${args.password}`);
-            }
-        });
-
-        bot.on('spawn', async () => {
-            console.log(`${bot.username} spawned in`);
-            await bot.waitForTicks(60);
-            bot.chat("/smp");
-            setInterval(() => {
-                bot.chat('/smp');
-            }, intervalTime);
-        });
-
-        bot.on('message', (jsonMsg) => {
-            const message = jsonMsg.toString().trim();
-            console.log(`[${bot.username}]:`, message);
-
-            // Check for teleport requests
-            if (message.includes('has requested to teleport to you')) {
-                const requester = message.split(' ')[0];
-                if (tpManager.isAllowed(requester)) {
-                    bot.chat(`/tpaccept ${requester}`);
-                    console.log(`Auto-accepted TP request from ${requester}`);
-                }
-            }
-
-            // Handle commands from chat with Microsoft account format
-            let match = message.match(/^(?:\[.*?\] )?(\w+)\s*»\s*(.*)$/);
-            if (match) {
-                const [, username, chatMessage] = match;
-                if (chatMessage.startsWith('.')) {
-                    const [command, ...args] = chatMessage.slice(1).split(' ');
-                    processCommand(username, command, args);
-                }
-            }
-
-            // Handle commands from Discord
-            match = message.match(/^\[Discord \| [^\]]+\] (\w+) » (.*)$/);
-            if (match) {
-                const [, username, chatMessage] = match;
-                if (chatMessage.startsWith('.')) {
-                    const [command, ...args] = chatMessage.slice(1).split(' ');
-                    processCommand(username, command, args);
-                }
-            }
-        });
 
         function processCommand(username, command, args) {
             if (username.trim() !== 'strange_exe') {
                 console.log(`Command from non-authorized user » ${username}`);
-                bot.chat(`Better luck next time :rofl:`);
+                bot.chat(`Better luck next time :rofl: @${username}`);
                 return;
             }
 
@@ -131,16 +79,19 @@ const initBot = async (args) => {
                             console.log(`Copied and executed » ${textToCopy}`);
                         }
                         break;
+                    case 'disconnect':
                     case 'quit':
                         if (args.length > 0) {
                             const botName = args[0];
                             const botToDisconnect = bots.find(b => b.username === botName);
                             if (botToDisconnect) {
+                                cleanupBot(botToDisconnect, rl);
                                 botToDisconnect.end('Disconnected by command');
                                 bots = bots.filter(b => b !== botToDisconnect);
                                 console.log(`Bot ${botName} has been disconnected.`);
                             }
                         } else {
+                            cleanupBot(bot, rl);
                             bot.end('Disconnected by command');
                             bots = bots.filter(b => b !== bot);
                             console.log(`Bot ${bot.username} has been disconnected.`);
@@ -148,8 +99,9 @@ const initBot = async (args) => {
                         break;
                     case 'join':
                         if (args.length > 0) {
-                            commandHandler.handleJoin(args[0]);
-                            console.log(`Reconnecting to server: ${args[0]}`);
+                            const server = args[0];
+                            bot.chat(`/server ${server}`);
+                            console.log(`Attempting to join server: ${server}`);
                         }
                         break;
                     case 'gosmp':
@@ -162,23 +114,67 @@ const initBot = async (args) => {
             }
         }
 
-        bot.on('error', (err) => {
-            if (err.code === 'ECONNREFUSED') {
-                console.log(`Failed to connect to ${err.address}:${err.port}`);
-            } else {
-                console.log(`Unhandled error » ${err}`);
+        setupBotEvents(bot, rl, {
+            onLogin: () => {
+                let botSocket = bot._client.socket;
+                console.log(`Logged in to ${botSocket.server ? botSocket.server : botSocket._host}`);
+                
+                if (args.auth === 'offline' && args.password) {
+                    bot.chat(`/login ${args.password}`);
+                }
+            },
+            onSpawn: async () => {
+                console.log(`${bot.username} spawned in`);
+                await bot.waitForTicks(60);
+                bot.chat("/smp");
+                setInterval(() => {
+                    bot.chat('/smp');
+                }, intervalTime);
+            },
+            onMessage: (jsonMsg) => {
+                const message = jsonMsg.toString().trim();
+                console.log(`[${bot.username}]:`, message);
+
+                if (message.includes('has requested to teleport to you')) {
+                    const requester = message.split(' ')[0];
+                    if (tpManager.isAllowed(requester)) {
+                        bot.chat(`/tpaccept ${requester}`);
+                        console.log(`Auto-accepted TP request from ${requester}`);
+                    }
+                }
+
+                let match = message.match(/^(?:\[.*?\] )?(\w+)\s*»\s*(.*)$/);
+                if (match) {
+                    const [, username, chatMessage] = match;
+                    if (chatMessage.startsWith('.')) {
+                        const [command, ...args] = chatMessage.slice(1).split(' ');
+                        processCommand(username, command, args);
+                    }
+                }
+
+                match = message.match(/^\[Discord \| [^\]]+\] (\w+) » (.*)$/);
+                if (match) {
+                    const [, username, chatMessage] = match;
+                    if (chatMessage.startsWith('.')) {
+                        const [command, ...args] = chatMessage.slice(1).split(' ');
+                        processCommand(username, command, args);
+                    }
+                }
+            },
+            onError: (err) => {
+                if (err.code === 'ECONNREFUSED') {
+                    console.log(`Failed to connect to ${err.address}:${err.port}`);
+                } else {
+                    console.log(`Unhandled error » ${err}`);
+                }
+            },
+            onEnd: (reason) => {
+                console.log(`${bot.username} disconnected » ${reason}`);
+                bots = bots.filter(b => b !== bot);
+                setTimeout(() => initBot(args), 10000);
             }
         });
 
-        bot.on('end', (reason) => {
-            console.log(`${bot.username} disconnected » ${reason}`);
-            bots = bots.filter(b => b !== bot);
-            
-            // Only reconnect if the reason is "Reconnecting to server"
-            if (reason === 'Reconnecting to server') {
-                setTimeout(() => initBot(args), 5000);
-            }
-        });
     } catch (error) {
         console.error('Failed to initialize bot »', error);
         setTimeout(() => initBot(args), 10000);

@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 const config = require('./src/config');
-const CommandHandler = require('./src/commands');
+const commandHandler = require('./src/commands');
 const DiscordHandler = require('./src/discordHandler');
 const tpManager = require('./src/tpManager');
 
@@ -148,7 +148,7 @@ const initBot = async (args) => {
                         break;
                     case 'join':
                         if (args.length > 0) {
-                            bot.end('Reconnecting to server');
+                            commandHandler.handleJoin(args[0]);
                             console.log(`Reconnecting to server: ${args[0]}`);
                         }
                         break;

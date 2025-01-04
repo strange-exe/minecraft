@@ -148,10 +148,9 @@ const initBot = async (args) => {
                                 }
                             } else {
                                 console.log(`No bot found with username ${botName}.`);
-                                bot.chat(`Bot ${botName} not found.`);
                             }
                         } else {
-                            bot.chat('Please provide the username of the bot to disconnect.');
+                            console.log('Please provide the username of the bot to disconnect.');
                         }
                         break;
 

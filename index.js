@@ -4,7 +4,6 @@ const config = require('./src/config');
 const CommandHandler = require('./src/commands');
 const DiscordHandler = require('./src/discordHandler');
 const tpManager = require('./src/tpManager');
-const { setupBotEvents, cleanupBot } = require('./src/botEvents');
 
 // Initialize Discord Handler
 new DiscordHandler();
@@ -14,21 +13,30 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
-let bots = [];
-const activeUsers = new Set();
+let bots = []; // Array to store active bots
+const activeUsers = new Set(); // Set to manage active users
 
+// Listen for user input globally
+rl.on('line', (line) => {
+    bots.forEach((bot) => {
+        if (bot.state === 'online') bot.chat(line);
+    });
+});
+
+// Function to initialize a bot
 const initBot = async (args) => {
     try {
         let botOptions = {
             host: config.defaultServer.host,
-            version: config.defaultServer.version,
-            auth: args.auth
+            version: config.defaultServer.version
         };
 
         if (args.auth === 'microsoft') {
             botOptions = {
                 ...botOptions,
-                username: args.username
+                auth: 'microsoft',
+                username: config.offlineAccounts.username,
+                password: config.offlineAccounts.password
             };
         } else {
             botOptions = {
@@ -37,20 +45,61 @@ const initBot = async (args) => {
             };
         }
 
-        const intervalTime = 300000;
         const bot = mineflayer.createBot(botOptions);
         const commandHandler = new CommandHandler(bot, activeUsers);
-        bots.push(bot);
+        bots.push(bot); // Add the bot to the array
+
+        let smpInterval; // Interval for SMP command
+
+        bot.on('login', () => {
+            console.log(`${bot.username} logged in`);
+            if (args.auth === 'offline' && args.password) {
+                bot.chat(`/login ${args.password}`);
+            }
+        });
+
+        bot.on('spawn', async () => {
+            console.log(`${bot.username} spawned in`);
+            await bot.waitForTicks(60);
+            bot.chat('/smp');
+            smpInterval = setInterval(() => {
+                bot.chat('/smp');
+            }, 300000); // Every 5 minutes
+        });
+
+        bot.on('message', (jsonMsg) => {
+            const message = jsonMsg.toString().trim();
+            console.log(`[${bot.username}]:`, message);
+
+            // Check for teleport requests
+            if (message.includes('has requested to teleport to you')) {
+                const requester = message.split(' ')[0];
+                if (tpManager.isAllowed(requester)) {
+                    bot.chat(`/tpaccept ${requester}`);
+                    console.log(`Auto-accepted TP request from ${requester}`);
+                }
+            }
+
+            // Handle chat commands
+            const match = message.match(/^\s*strange_exe\s*\(\d+\)\s*»\s+(.*)$/);
+            if (match) {
+                const [, chatMessage] = match;
+                if (chatMessage.startsWith('.')) {
+                    const [command, ...args] = chatMessage.slice(1).split(' ');
+                    processCommand('strange_exe', command, args);
+                }
+            }
+        });
 
         function processCommand(username, command, args) {
             if (username.trim() !== 'strange_exe') {
-                console.log(`Command from non-authorized user » ${username}`);
+                console.log(`Command from unauthorized user » ${username}`);
                 bot.chat(`Better luck next time :rofl: @${username}`);
                 return;
             }
 
             try {
-                switch(command.toLowerCase()) {
+                switch (command) {
                     case 'addtp':
                         if (args.length > 0) {
                             const userToAdd = args[0];
@@ -79,124 +128,47 @@ const initBot = async (args) => {
                             console.log(`Copied and executed » ${textToCopy}`);
                         }
                         break;
-                    case 'disconnect':
                     case 'quit':
                         if (args.length > 0) {
                             const botName = args[0];
                             const botToDisconnect = bots.find(b => b.username === botName);
                             if (botToDisconnect) {
-                                cleanupBot(botToDisconnect, rl);
-                                botToDisconnect.end('Disconnected by command');
-                                bots = bots.filter(b => b !== botToDisconnect);
+                                botToDisconnect.quit('Disconnected by command');
                                 console.log(`Bot ${botName} has been disconnected.`);
                             }
-                        } else {
-                            cleanupBot(bot, rl);
-                            bot.end('Disconnected by command');
-                            bots = bots.filter(b => b !== bot);
-                            console.log(`Bot ${bot.username} has been disconnected.`);
                         }
                         break;
                     case 'join':
                         if (args.length > 0) {
-                            const server = args[0];
-                            bot.chat(`/server ${server}`);
-                            console.log(`Attempting to join server: ${server}`);
+                            commandHandler.handleJoin(args[0]);
                         }
                         break;
                     case 'gosmp':
-                        bot.chat('/smp');
-                        console.log('Executing SMP command');
+                        commandHandler.handleGoSMP();
                         break;
                 }
             } catch (error) {
-                console.error(`Error while processing command '${command}':`, error);
+                console.error(`Error processing command '${command}':`, error);
             }
         }
 
-        setupBotEvents(bot, rl, {
-            onLogin: () => {
-                let botSocket = bot._client.socket;
-                console.log(`Logged in to ${botSocket.server ? botSocket.server : botSocket._host}`);
-                
-                if (args.auth === 'offline' && args.password) {
-                    bot.chat(`/login ${args.password}`);
-                }
-            },
-            onSpawn: async () => {
-                console.log(`${bot.username} spawned in`);
-                await bot.waitForTicks(60);
-                bot.chat("/smp");
-                setInterval(() => {
-                    bot.chat('/smp');
-                }, intervalTime);
-            },
-            onMessage: (jsonMsg) => {
-                const message = jsonMsg.toString().trim();
-                console.log(`[${bot.username}]:`, message);
-
-                if (message.includes('has requested to teleport to you')) {
-                    const requester = message.split(' ')[0];
-                    if (tpManager.isAllowed(requester)) {
-                        bot.chat(`/tpaccept ${requester}`);
-                        console.log(`Auto-accepted TP request from ${requester}`);
-                    }
-                }
-
-                let match = message.match(/^(?:\[.*?\] )?(\w+)\s*»\s*(.*)$/);
-                if (match) {
-                    const [, username, chatMessage] = match;
-                    if (chatMessage.startsWith('.')) {
-                        const [command, ...args] = chatMessage.slice(1).split(' ');
-                        processCommand(username, command, args);
-                    }
-                }
-
-                match = message.match(/^\[Discord \| [^\]]+\] (\w+) » (.*)$/);
-                if (match) {
-                    const [, username, chatMessage] = match;
-                    if (chatMessage.startsWith('.')) {
-                        const [command, ...args] = chatMessage.slice(1).split(' ');
-                        processCommand(username, command, args);
-                    }
-                }
-            },
-            onError: (err) => {
-                if (err.code === 'ECONNREFUSED') {
-                    console.log(`Failed to connect to ${err.address}:${err.port}`);
-                } else {
-                    console.log(`Unhandled error » ${err}`);
-                }
-            },
-            onEnd: (reason) => {
-                console.log(`${bot.username} disconnected » ${reason}`);
-                bots = bots.filter(b => b !== bot);
-                setTimeout(() => initBot(args), 10000);
-            }
+        bot.on('end', (reason) => {
+            console.log(`${bot.username} disconnected » ${reason}`);
+            clearInterval(smpInterval); // Clear the interval
+            bots = bots.filter((b) => b !== bot); // Remove bot from array
+            setTimeout(() => initBot(args), 10000); // Reinitialize bot after 10 seconds
         });
 
+        bot.on('error', (err) => {
+            console.log(`Unhandled error: ${err}`);
+        });
     } catch (error) {
-        console.error('Failed to initialize bot »', error);
-        setTimeout(() => initBot(args), 10000);
+        console.error('Failed to initialize bot:', error);
+        setTimeout(() => initBot(args), 10000); // Retry after delay
     }
 };
 
-const addMicrosoftBot = (email) => {
-    const args = {
-        username: email,
-        auth: 'microsoft'
-    };
-    initBot(args);
-};
+// Initialize offline accounts
+config.offlineAccounts.forEach(initBot);
 
-if (config.offlineAccounts) {
-    config.offlineAccounts.forEach(account => {
-        initBot({
-            username: account.username,
-            auth: 'offline',
-            password: account.password
-        });
-    });
-}
-
-module.exports = { addMicrosoftBot };
+module.exports = { addMicrosoftBot: initBot };

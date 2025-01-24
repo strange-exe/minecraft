@@ -16,7 +16,7 @@ const config = {
         },
         {
             username: 'Phoenixxx',
-            password: 'phoenix.exe',
+            password: 'phoenixxx.exe',
             auth: 'offline'
         }
         // {

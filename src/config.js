@@ -13,6 +13,11 @@ const config = {
             username: 'STRANGE',
             password: 'strange.exe',
             auth: 'offline'
+        },
+        {
+            username: 'Phoenixxx',
+            password: 'phoenix.exe',
+            auth: 'offline'
         }
         // {
         //     username: '_ABHAY_GAMING_',
